@@ -30,6 +30,21 @@ class Page {
     return data_.data();
   }
 
+  // ALL types of pages share the same metadata field and at same position:
+  // Type at offset 0.
+  // Generic page should be able to read type to identify which wrapper should
+  // be used (i.e when fetching from buffer pool).
+  PageType GetPageType() {
+    PageType type;
+    std::memcpy(&type, GetData(), sizeof(PageType));
+
+    return type;
+  }
+
+  void SetPageType(PageType type) {
+    std::memcpy(GetData(), &type, sizeof(PageType));
+  }
+
  private:
   PageID page_id_ = INVALID_PAGE_ID;
   std::array<std::byte, PAGE_SIZE> data_{};

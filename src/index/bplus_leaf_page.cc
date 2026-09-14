@@ -2,20 +2,8 @@
 #include "../record/record.h"
 
 #include <cstring>
-#include <memory>
 
 // [METADATA REGION responsible functionality]
-
-PageType BPlusLeafPage::GetType() const {
-  PageType type;
-  std::memcpy(&type, page_.GetData() + TYPE_OFFSET, sizeof(PageType));
-
-  return type;
-}
-
-void BPlusLeafPage::SetType(PageType type) {
-  std::memcpy(page_.GetData() + TYPE_OFFSET, &type, sizeof(PageType));
-}
 
 uint16_t BPlusLeafPage::GetEntryCount() const {
   uint16_t size;
