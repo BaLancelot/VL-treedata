@@ -3,9 +3,10 @@
 
 #include <cstdint>
 
-using PageID = uint32_t;
+using PageID = std::uint32_t;
 
 // Represents a record that is mapped with key and stored in pages.
+// Used in Leaf Pages
 struct RecordID {
   PageID page_id;
   uint16_t slot;

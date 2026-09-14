@@ -19,9 +19,6 @@ class BPlusLeafPage {
 
   // Interface for accessing / modifying metadata region of leaf page
 
-  PageType GetType() const;
-  void SetType(PageType type);
-
   uint16_t GetEntryCount() const;
   void SetEntryCount(uint16_t count);
 
@@ -39,14 +36,16 @@ class BPlusLeafPage {
   // Returns key of the entry at given entry index.
   Key GetEntryKey(uint16_t entry_index) const;
 
+  void SetEntryKey(uint16_t entry_index, Key key);
+
   // Returns RecordID struct populated with PageID and slot number.
   RecordID GetEntryRecordID(uint16_t entry_index) const;
+
+  void SetEntryRecordID(uint16_t entry_index, RecordID record);
 
   // Returns fully populated LeafEntry struct containing Key and RecordID
   LeafEntry GetEntry(uint16_t entry_index) const;
 
-  void SetEntryKey(uint16_t entry_index, Key key);
-  void SetEntryRecordID(uint16_t entry_index, RecordID record);
   void SetEntry(uint16_t entry_index, const LeafEntry& entry);
   
  private:
