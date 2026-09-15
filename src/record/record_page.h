@@ -15,17 +15,15 @@ struct RecordSlot {
 // Page that stores ACTUAL data of the database. Its responsibility is to
 // find / create slot, calculate offset for variable-size record data and
 // insert it. For deletion, changes the metadata of slot record to invalid
-// state.
+// state, compacts the data to eliminate data holes, updates the offset metadata
+// of remaining slots to new offset values.
 //
 // Consists of metadata header on top, followed by slot records consisting of
 // slot -> page offset, and record data itself growing from the bottom of page
 // according to offsets described in slot records.
+// 
 //
-// @TODO: Naive approach for first version. After deletes take place, there will
-// be holes between record data, but page will keep growing without considering
-// free space. 
-//
-// Solution: Create a RecordManager class responsible for finding page with
+// @TODO: Create a RecordManager class responsible for finding page with
 // enough free space for a record. This way, before deciding to allocate new
 // page, there is an opportunity to use existing free space.
 class RecordPage {
@@ -36,11 +34,8 @@ class RecordPage {
   // record page to initial values
   void Initialize();
 
-  PageType GetType() const;
-  void SetType(PageType type);
-
   uint16_t GetSlotCount() const;  // represents total number of ever used slots
-  void SetSlotCount(uint16_t) const;
+  void SetSlotCount(uint16_t slots);
 
   uint16_t GetLiveRecordCount() const; // represents ACTUAL count (i.e. deletes)
   void SetLiveRecordCount(uint16_t count);
@@ -69,16 +64,23 @@ class RecordPage {
   // Checks if given record data can fit (including the metadata overhead part)
   bool CanFit(size_t record_size) const;
 
-  uint16_t Insert(const std::vector<std::byte>& record);
-
   std::vector<std::byte> GetRecordData(uint16_t slot_index) const;
+
+  uint16_t Insert(const std::vector<std::byte>& record);
 
   // Sets the given slot's metadata to invalid state, therefore marking it free
   void Delete(uint16_t slot_index);
 
+  // @TODO :)
+  void RecordPage::Update(uint16_t slot_index,
+                          const std::vector<std::byte>& record);
 
  private:
+  // Returns slot index of found free slot metadata, otherwise UINT16_MAX
   uint16_t FindFreeSlot() const;
+
+  // Called during deletion to compact data, preventing data holes
+  void Compact(const RecordSlot& deleted_slot);
 
   // METADATA offsets
   
@@ -92,6 +94,8 @@ class RecordPage {
   static constexpr size_t HEADER_SIZE = FREE_SPACE_END_OFFSET
                                       + sizeof(uint16_t);
   static constexpr size_t SLOT_SIZE = sizeof(uint16_t) + sizeof(uint16_t);
+
+  static constexpr uint16_t INVALID_SLOT = UINT16_MAX;
 
   Page& page_;
 };
