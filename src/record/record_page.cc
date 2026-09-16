@@ -187,7 +187,7 @@ void RecordPage::Compact(const RecordSlot& deleted_slot) {
 
 void RecordPage::Delete(uint16_t slot_index) {
   if (slot_index >= GetSlotCount()) {
-    throw std::out_of_range("Invalid record slot");
+    throw std::out_of_range("Invalid slot index: " + std::to_string(slot_index));
   }
 
   RecordSlot to_delete = GetSlot(slot_index);
@@ -231,4 +231,87 @@ uint16_t RecordPage::Insert(const std::vector<std::byte>& record) {
   SetSlot(slot_index, new_slot);
 
   return slot_index;
+}
+
+void RecordPage::Update(uint16_t slot_index,
+                        const std::vector<std::byte>& record_data) {
+  if (slot_index >= GetSlotCount()) {
+    throw std::out_of_range("Invalid slot index: " + std::to_string(slot_index));
+  }
+
+  if (IsSlotFree(slot_index)) {
+    throw std::runtime_error("Cannot update a free record slot.");
+  }
+
+  if (record_data.empty()) {
+    throw std::runtime_error("Cannot replace with an empty record.");
+  }
+
+  size_t new_size = record_data.size();
+  uint16_t current_size = GetSlotLength(slot_index);
+  
+  if (current_size == new_size) {
+    SetSameSizeRecordData(slot_index, record_data);
+  } else {
+    int32_t offset_delta = 
+        static_cast<int32_t>(new_size) - static_cast<int32_t>(current_size);
+    
+    uint16_t current_offset = GetSlotOffset(slot_index);
+    uint16_t current_free_space_end = GetFreeSpaceEnd();
+    uint16_t shift_data_size = current_offset - current_free_space_end;
+
+    // Before performing move, check if increased size can fit
+    if (offset_delta > 0) {
+      size_t slot_directory_end = HEADER_SIZE + GetSlotCount() * SLOT_SIZE;
+      
+      if (current_free_space_end < slot_directory_end) {
+        throw std::runtime_error("Malformed record page.");
+      }
+      
+      size_t available_space = current_free_space_end - slot_directory_end;
+
+      if (static_cast<size_t>(offset_delta) > available_space) {
+        throw std::runtime_error( "Updated record cannot fit in this page.");
+      }
+    }
+
+    // move all slots' data above the current by delta
+    int32_t new_free_space_end = 
+        static_cast<int32_t>(current_free_space_end) - offset_delta;
+    std::memmove(page_.GetData() + new_free_space_end,
+                 page_.GetData() + current_free_space_end, 
+                 shift_data_size);
+    
+    // rewrite updated data of current slot
+    int32_t new_record_offset =
+        static_cast<int32_t>(current_offset) - offset_delta;
+    std::memcpy(page_.GetData() + new_record_offset,
+                record_data.data(),
+                new_size);
+
+    SetSlot(slot_index, RecordSlot{static_cast<uint16_t>(new_record_offset),
+                                   static_cast<uint16_t>(new_size)});
+
+    // Update slots metadata because of the shift
+    for (uint16_t i = 0; i < GetSlotCount(); i++) {
+      if (i == slot_index || IsSlotFree(i)) {
+        continue;
+      }
+
+      uint16_t offset = GetSlotOffset(i);
+      if (offset < current_offset) {
+        SetSlotOffset(i, static_cast<uint16_t>(
+            static_cast<int32_t>(offset) - offset_delta));
+      }
+    }
+
+    SetFreeSpaceEnd(new_free_space_end);
+  }
+}
+
+void RecordPage::SetSameSizeRecordData(uint16_t slot_index,
+                                       const std::vector<std::byte>& data) {
+  uint16_t existing_offset = GetSlotOffset(slot_index);
+
+  std::memcpy(page_.GetData() + existing_offset, data.data(), data.size());
 }
