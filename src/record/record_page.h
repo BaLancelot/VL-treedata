@@ -35,17 +35,41 @@ class RecordPage {
   void Initialize();
 
   uint16_t GetSlotCount() const;  // represents total number of ever used slots
-  void SetSlotCount(uint16_t slots);
 
-  uint16_t GetLiveRecordCount() const; // represents ACTUAL count (i.e. deletes)
-  void SetLiveRecordCount(uint16_t count);
-
-  // I.e. offset for next record's *data*
+  uint16_t GetLiveRecordCount() const; // represents ACTUAL slot count
 
   uint16_t GetFreeSpaceEnd() const;
+
+  // Checks if given record data can fit (including the metadata overhead part)
+  bool CanFit(size_t record_size) const;
+
+  std::vector<std::byte> GetRecordData(uint16_t slot_index) const;
+
+  // Record operations
+
+  // Sets the given slot's metadata to invalid state, therefore marking it free
+  // Shifts record elements down to preserve uniform memory usage, avoiding
+  // data holes between record data.
+  void Delete(uint16_t slot_index);
+
+  uint16_t Insert(const std::vector<std::byte>& record);
+
+  // Update the data of record if such already exists
+  // In case of change in data size, shifts upper slot records' data to
+  // close in potential data hole (if new size if smaller), or to not overwrite
+  // neighbors' record data (if new size is bigger)
+  void Update(uint16_t slot_index, const std::vector<std::byte>& record_data);
+
+ private:
+  // Metadata setters
+
+  void SetSlotCount(uint16_t slots);
+
+  void SetLiveRecordCount(uint16_t count);
+
   void SetFreeSpaceEnd(uint16_t offset);
 
-  // Slot access
+  // Slot access: All of setters & getters assume index is validated.
 
   uint16_t GetSlotOffset(uint16_t slot_index) const;         // from metadata
   void SetSlotOffset(uint16_t slot_index, uint16_t offset);
@@ -56,34 +80,23 @@ class RecordPage {
   RecordSlot GetSlot(uint16_t slot_index) const;
   void SetSlot(uint16_t slot_index, const RecordSlot& slot);
 
-  // Checks if existing slot has valid values (length != 0 -> free)
+  // Checks if existing slot has valid values (length == 0 -> free)
   bool IsSlotFree(uint16_t slot_index) const;
 
-  // Record operations
-
-  // Checks if given record data can fit (including the metadata overhead part)
-  bool CanFit(size_t record_size) const;
-
-  std::vector<std::byte> GetRecordData(uint16_t slot_index) const;
-
-  uint16_t Insert(const std::vector<std::byte>& record);
-
-  // Sets the given slot's metadata to invalid state, therefore marking it free
-  void Delete(uint16_t slot_index);
-
-  // @TODO :)
-  void RecordPage::Update(uint16_t slot_index,
-                          const std::vector<std::byte>& record);
-
- private:
   // Returns slot index of found free slot metadata, otherwise UINT16_MAX
   uint16_t FindFreeSlot() const;
 
   // Called during deletion to compact data, preventing data holes
   void Compact(const RecordSlot& deleted_slot);
 
+  // Helper that is used ONLY when it is ensured the old data at the given slot
+  // index has the same length as the new one we try to insert.
+  // Assumes index and data size is already validated by caller.
+  void SetSameSizeRecordData(uint16_t slot_index,
+                           const std::vector<std::byte>& data);
+
   // METADATA offsets
-  
+
   static constexpr size_t TYPE_OFFSET = 0;
   static constexpr size_t SLOT_COUNT_OFFSET = 0 + sizeof(PageType);
   static constexpr size_t LIVE_RECORD_COUNT_OFFSET = SLOT_COUNT_OFFSET
