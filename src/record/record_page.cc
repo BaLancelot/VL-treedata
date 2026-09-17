@@ -151,6 +151,25 @@ std::vector<std::byte> RecordPage::GetRecordData(uint16_t slot_index) const {
   return record_data;
 }
 
+uint16_t RecordPage::GetMaximumRecordSizeFit() const {
+  size_t metadata_overhead = 0;
+
+  if (FindFreeSlot() == INVALID_SLOT) {
+    metadata_overhead = SLOT_SIZE;
+  }
+
+  // Need these vars directly to avoid unsigned underflow.
+  size_t slot_directory_end = HEADER_SIZE + GetSlotCount() * SLOT_SIZE;
+  size_t adjusted_directory_end = slot_directory_end + metadata_overhead;
+  size_t free_space_end = GetFreeSpaceEnd();
+
+  if (free_space_end < adjusted_directory_end) {
+	return 0;
+  }
+
+  return static_cast<uint16_t>(free_space_end - adjusted_directory_end);
+}
+
 uint16_t RecordPage::FindFreeSlot() const {
   for (uint16_t i = 0; i < GetSlotCount(); i++) {
     if (IsSlotFree(i)) {

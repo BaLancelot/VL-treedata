@@ -45,6 +45,12 @@ class RecordPage {
 
   std::vector<std::byte> GetRecordData(uint16_t slot_index) const;
 
+  // Returns the maximum possible size for a record to fit in this page.
+  // Considers the presense of free slots (if no free slot -> + metadata 
+  // overhead)
+  // Used by RecordManager to keep track of available space in each RecordPage.
+  uint16_t GetMaximumRecordSizeFit() const;
+
   // Record operations
 
   // Sets the given slot's metadata to invalid state, therefore marking it free
@@ -83,7 +89,7 @@ class RecordPage {
   // Checks if existing slot has valid values (length == 0 -> free)
   bool IsSlotFree(uint16_t slot_index) const;
 
-  // Returns slot index of found free slot metadata, otherwise UINT16_MAX
+  // Returns slot index of found free slot metadata, otherwise INVALID_SLOT
   uint16_t FindFreeSlot() const;
 
   // Called during deletion to compact data, preventing data holes
