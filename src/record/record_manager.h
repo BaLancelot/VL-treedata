@@ -21,11 +21,19 @@
 // work, since there won't be a write to metadata page if crash happens.
 class RecordManager {
  public:
+
+  // Called to load the saved metadata state into a manager.
+  // Should be called BEFORE any record operations.
+  void RestoreMetadataState(std::map<PageID, uint32_t>& metadata);
+
+  // Called to get the state of record manager for saving metadata purposes.
+  const std::map<PageID, uint32_t>& GetMetadataState() const;
+
   // If no fitting Page is found, returns INVALID_PAGE_ID
   PageID GetFitPageID(size_t data_size) const;
 
   // Does both Insert and Update
-  void SetPageFreeSpaceInfo(PageID page, uint16_t new_free_space);
+  void SetPageFreeSpaceInfo(PageID page, uint32_t new_free_space);
 
   // TBD if needed.
   void DeletePageFreeSpaceInfo(PageID page);
@@ -33,7 +41,7 @@ class RecordManager {
  private:
  // Maps PageID to maximum record size that can fit
  // (potential metadata overhead considered)
-  std::map<PageID, uint16_t> page_to_space_;
+  std::map<PageID, uint32_t> page_to_space_;
 };
 
 #endif  // RECORD_MANAGER_H_
